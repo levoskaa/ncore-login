@@ -16,6 +16,7 @@ puppeteer.use(StealthPlugin());
   await page.type("input#nev", process.env.NCORE_USERNAME);
   await page.type("input[type=password]", process.env.NCORE_PASSWORD);
   await page.click("input[type=submit]");
+  await page.waitForNavigation();
 
   await browser.close();
 })();
