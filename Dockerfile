@@ -1,0 +1,88 @@
+# Use an official Node.js runtime as a parent image.
+# We choose a version compatible with Puppeteer (Node 18+) and a Debian base ('bullseye-slim')
+# for easier installation of Chromium dependencies.
+FROM node:24-bullseye-slim
+
+# Set Node.js environment to production, which can optimize some Node.js/Express behaviors
+# and is good practice for production images.
+ENV NODE_ENV=production
+
+# Install system dependencies required by Puppeteer to run Chromium.
+# This list is based on Puppeteer's official troubleshooting guide (pptr.dev/troubleshooting).
+# We use --no-install-recommends to keep the image size smaller.
+# We clean up apt cache files afterwards to further reduce image size.
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    ca-certificates \
+    fonts-liberation \
+    libasound2 \
+    libatk-bridge2.0-0 \
+    libatk1.0-0 \
+    libcairo2 \
+    libcups2 \
+    libdbus-1-3 \
+    libexpat1 \
+    libfontconfig1 \
+    libgbm1 \
+    libglib2.0-0 \
+    libgtk-3-0 \
+    libnspr4 \
+    libnss3 \
+    libpango-1.0-0 \
+    libpangocairo-1.0-0 \
+    libx11-6 \
+    libx11-xcb1 \
+    libxcb1 \
+    libxcomposite1 \
+    libxcursor1 \
+    libxdamage1 \
+    libxext6 \
+    libxfixes3 \
+    libxi6 \
+    libxrandr2 \
+    libxrender1 \
+    libxss1 \
+    libxtst6 \
+    lsb-release \
+    wget \
+    xdg-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set the working directory in the container for subsequent commands.
+WORKDIR /usr/src/app
+
+# Copy package.json and package-lock.json to the working directory.
+# The wildcard `package*.json` copies both if they exist.
+COPY package*.json ./
+
+# Install project dependencies using npm ci.
+# `npm ci` provides faster, more reliable builds for CI/CD environments as it installs
+# directly from package-lock.json and ensures a clean slate.
+# --only=production ensures only runtime dependencies (not devDependencies) are installed.
+# Puppeteer will download its bundled Chromium version during this step.
+RUN npm ci --only=production
+
+# Copy the rest of the application's source code from the build context
+# to the working directory in the container.
+# It's recommended to have a .dockerignore file in your project root
+# to exclude files not needed in the image (e.g., .git, .env, Dockerfile itself, README.md).
+COPY . .
+
+# Create a non-root user and group for security best practices.
+# Running applications as a non-root user limits potential damage if a process is compromised.
+# --system creates a system user/group (typically with UID/GID < 1000).
+# --create-home creates a home directory for the user.
+RUN groupadd --system pptruser && \
+    useradd --system --gid pptruser --create-home pptruser && \
+    # Give the new user ownership of the app directory and its home directory
+    chown -R pptruser:pptruser /usr/src/app /home/pptruser
+
+# Switch to the non-root user for subsequent commands and for running the application.
+USER pptruser
+
+# Define the command to run the application when the container starts.
+# The application `app.js` uses ES modules, so it's run directly with `node`.
+# NCORE_USERNAME and NCORE_PASSWORD must be passed as environment variables
+# when running the container. For example:
+# docker run -e NCORE_USERNAME="your_username" -e NCORE_PASSWORD="your_password" your-image-name
+CMD [ "node", "app.js" ]

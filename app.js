@@ -18,5 +18,7 @@ puppeteer.use(StealthPlugin());
   await page.click("input[type=submit]");
   await page.waitForNavigation();
 
+  console.log("Logged in successfully.");
+
   await browser.close();
 })();
