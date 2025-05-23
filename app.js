@@ -7,7 +7,11 @@ dotenv.config();
 puppeteer.use(StealthPlugin());
 
 (async function () {
-  const browser = await puppeteer.launch();
+  const browser = await puppeteer.launch({
+    headless: "shell",
+    executablePath: "/usr/bin/chromium",
+    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+  });
   const page = await browser.newPage();
   const randomUserAgent = new UserAgent();
   page.setUserAgent(randomUserAgent.toString());
